@@ -1,0 +1,20 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+*.log
+
+# 本机运行记录、导出结果不要进仓库
+data/
+导出结果/
+.env
+.env.*
+*.db
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+~$*.xlsx
+~$*.xls

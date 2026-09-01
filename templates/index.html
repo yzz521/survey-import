@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>问卷批量导入工具</title>
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#fff; --border:#e3e6eb; --text:#1f2329; --muted:#7a828e;
+  --primary:#2563eb; --primary-d:#1d4ed8; --ok:#0f9d58; --warn:#e08700;
+  --err:#d93025; --skip:#8a8f98; --shadow:0 1px 3px rgba(0,0,0,.06);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+button,input,select{font-family:inherit;font-size:13px}
+button{cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--text);
+  padding:6px 12px;border-radius:6px;transition:.15s}
+button:hover:not(:disabled){border-color:#c4c9d1;background:#fafbfc}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+button.primary:hover:not(:disabled){background:var(--primary-d);border-color:var(--primary-d)}
+button.danger{background:#fff;border-color:#f0b4b0;color:var(--err)}
+button.danger:hover:not(:disabled){background:#fdf2f1;border-color:var(--err)}
+button.sm{padding:3px 9px;font-size:12px;border-radius:5px}
+
+header{background:var(--panel);border-bottom:1px solid var(--border);padding:10px 18px 12px;
+  display:flex;flex-direction:column;gap:9px;position:sticky;top:0;z-index:10}
+.head-top{display:flex;align-items:center;gap:14px}
+header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.2px}
+.head-top .spacer{flex:1}
+.head-src{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+.grp{flex:1;min-width:280px;display:flex;align-items:center;gap:6px;
+  background:#fbfcfd;border:1px solid var(--border);border-radius:7px;padding:4px 4px 4px 10px;
+  transition:border-color .15s,background .15s}
+.grp:focus-within{border-color:#93c5fd;background:#fff;box-shadow:0 0 0 2px rgba(147,197,253,.25)}
+.grp .lab{font-size:12px;color:var(--muted);white-space:nowrap;font-weight:500;
+  user-select:none;display:flex;align-items:center;gap:3px}
+.grp .lab i{font-style:normal;font-size:13px}
+.grp input[type=text]{flex:1;min-width:80px;border:none;background:transparent;padding:3px 0;
+  outline:none;color:var(--text);font-size:13px}
+.grp input[type=text]::placeholder{color:#9aa0a6}
+.grp button{flex-shrink:0;white-space:nowrap;padding:4px 10px;font-size:12px}
+.grp.over{border-color:var(--primary);background:#eef4ff}
+
+.stats{display:flex;gap:10px;padding:12px 18px;flex-wrap:wrap}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;
+  padding:10px 16px;min-width:104px;box-shadow:var(--shadow)}
+.card .n{font-size:21px;font-weight:600;line-height:1.2}
+.card .l{font-size:11.5px;color:var(--muted);margin-top:2px}
+.card.ok .n{color:var(--ok)} .card.warn .n{color:var(--warn)}
+.card.err .n{color:var(--err)} .card.run .n{color:var(--primary)}
+
+.main{display:flex;gap:12px;padding:0 18px 14px;align-items:flex-start}
+.left{flex:1;min-width:0;background:var(--panel);border:1px solid var(--border);
+  border-radius:8px;box-shadow:var(--shadow);overflow:hidden}
+.right{width:380px;flex:none;background:var(--panel);border:1px solid var(--border);
+  border-radius:8px;box-shadow:var(--shadow);display:flex;flex-direction:column;
+  height:calc(100vh - 210px);position:sticky;top:64px}
+
+.bar{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);
+  align-items:center;flex-wrap:wrap;background:#fcfcfd}
+.bar input[type=search]{flex:1;min-width:130px;padding:5px 10px;border:1px solid var(--border);
+  border-radius:6px}
+.bar select{padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:#fff}
+.bar label{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:4px;
+  cursor:pointer;user-select:none}
+
+.tw{max-height:calc(100vh - 320px);overflow:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid #f0f2f5;white-space:nowrap}
+th{position:sticky;top:0;background:#fafbfc;font-weight:600;font-size:12.5px;
+  color:#4a5159;z-index:2;border-bottom:1px solid var(--border)}
+td.name{white-space:normal;min-width:190px;max-width:300px}
+td.msg{white-space:normal;min-width:200px;max-width:420px;color:var(--muted);font-size:12.5px}
+tbody tr:hover{background:#f8fafc}
+tbody tr.sel{background:#eef4ff}
+input[type=checkbox]{cursor:pointer;width:15px;height:15px;accent-color:var(--primary)}
+.tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11.5px;
+  font-weight:600;line-height:1.6}
+.t-ok{background:#e6f4ea;color:#137333} .t-warning{background:#fef3e2;color:#a56000}
+.t-failed{background:#fce8e6;color:#b3261e} .t-skipped{background:#f1f3f4;color:#5f6368}
+.t-submitted{background:#e8f0fe;color:#1967d2} .t-none{background:#f1f3f4;color:#80868b}
+.t-pending{background:#f1f3f4;color:#80868b}
+
+.logw{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;
+  border-bottom:1px solid var(--border);font-weight:600;font-size:13px}
+.logw button{font-size:11.5px;padding:2px 8px}
+.logs{flex:1;overflow:auto;padding:8px 12px;font:12px/1.65 ui-monospace,SFMono-Regular,
+  Menlo,Consolas,monospace;background:#fbfcfd}
+.logs div{padding:1px 0;word-break:break-word;border-bottom:1px solid #fafbfc}
+.lv-info{color:#3c4043} .lv-error{color:#b3261e} .lv-warn{color:#a56000}
+.lv-progress{color:var(--primary)}
+.logs .ts{color:#9aa0a6;margin-right:6px}
+
+.prog{padding:9px 12px;border-top:1px solid var(--border);background:#fcfcfd}
+.prog .bar2{height:6px;background:#e8eaed;border-radius:3px;overflow:hidden;margin-top:6px}
+.prog .bar2 i{display:block;height:100%;background:var(--primary);width:0;transition:.3s}
+.prog .txt{font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
+
+footer{padding:8px 18px 18px;color:var(--muted);font-size:12px}
+.notice{background:#fff8e6;border:1px solid #f5d98a;color:#7a5c00;padding:9px 12px;
+  border-radius:6px;margin:0 18px 12px;font-size:12.5px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;
+  align-items:center;justify-content:center;z-index:50}
+.modal.show{display:flex}
+.modal .box{background:#fff;border-radius:10px;padding:20px;width:560px;max-width:92vw;
+  max-height:84vh;overflow:auto;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+.modal h3{margin:0 0 12px;font-size:15px}
+.modal pre{margin:0;font:12px/1.6 ui-monospace,Menlo,Consolas,monospace;
+  background:#f6f8fa;padding:10px;border-radius:6px;overflow:auto;max-height:52vh}
+.modal .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin-bottom:12px}
+.kv b{color:var(--muted);font-weight:500}
+.empty{padding:34px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-top">
+    <h1>问卷批量导入工具</h1>
+    <div class="spacer"></div>
+    <button id="btnRefresh" title="重新加载门店与历史">刷新</button>
+  </div>
+  <div class="head-src">
+    <div class="grp" id="grpList">
+      <span class="lab"><i>📄</i>清单</span>
+      <input type="text" id="listPath" placeholder="门店清单 文件路径（xlsx/xls/csv，拖入也可）">
+      <button id="btnPickList" title="在 Finder 中选择 xlsx / xls / csv 文件">选文件…</button>
+    </div>
+    <div class="grp" id="grpDir">
+      <span class="lab"><i>📁</i>问卷</span>
+      <input type="text" id="qDir" placeholder="问卷目录（xlsx/xls/csv 三种格式都识别）">
+      <button id="btnPickDir" title="在 Finder 中选择目录">选目录…</button>
+    </div>
+    <div class="grp" id="grpPhoto">
+      <span class="lab"><i>📷</i>照片</span>
+      <input type="text" id="photoDir" placeholder="走访照片目录（按门店编号分子文件夹，可空）">
+      <button id="btnPickPhoto" title="在 Finder 中选择照片目录">选目录…</button>
+    </div>
+    <button id="btnApply" class="primary" title="保存并重新加载数据">应用并重载</button>
+  </div>
+</header>
+
+<div class="stats" id="stats"></div>
+
+<div class="notice" id="notice" style="display:none"></div>
+
+<div class="main">
+  <div class="left">
+    <div class="bar">
+      <input type="search" id="q" placeholder="搜索门店编号 / 名称 / 区域">
+      <select id="filter">
+        <option value="all">全部</option>
+        <option value="hasfile">有问卷文件</option>
+        <option value="hasphoto">有本地照片</option>
+        <option value="pending">未导入</option>
+        <option value="ok">成功</option>
+        <option value="warning">有缺失</option>
+        <option value="failed">失败</option>
+        <option value="skipped">已跳过</option>
+      </select>
+      <label><input type="checkbox" id="selAll"> 全选(当前筛选)</label>
+      <label title="已提交的报告默认跳过，勾选后可覆盖">
+        <input type="checkbox" id="force"> 强制覆盖已提交</label>
+      <span id="selCount" style="color:var(--muted);font-size:12.5px">已选 0</span>
+      <div class="spacer"></div>
+      <button class="primary" id="btnRun">导入草稿</button>
+      <button id="btnSubmitOnly" style="background:#fff5e6;border-color:#f0b97e;color:#a55b00"
+              title="不重新导入，仅提交已写好的草稿（保留你人工补的照片/定位）">
+        仅提交草稿
+      </button>
+      <button class="danger" id="btnSubmit">导入并提交</button>
+      <button id="btnExport">导出结果</button>
+      <button id="btnExportManual">待补填清单</button>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr>
+          <th style="width:34px"></th><th>门店编号</th><th>门店名称</th><th>区域</th>
+          <th>问卷文件</th><th>本地照片</th><th>状态</th><th>说明</th><th style="width:118px">操作</th>
+        </tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+      <div class="empty" id="empty" style="display:none">暂无数据，请先应用数据源</div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="logw"><span>运行日志</span><button id="btnClearLog">清空</button></div>
+    <div class="logs" id="logs"></div>
+    <div class="prog">
+      <div class="txt"><span id="pTxt">空闲</span><span id="pNum"></span></div>
+      <div class="bar2"><i id="pBar"></i></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  「导入草稿」只写不提交；「仅提交草稿」对已有草稿送审（不重新导入，保留人工补的照片/定位）；
+  「导入并提交」会先用 Excel 覆盖草稿再送审，<b>可能冲掉照片</b>。
+  照片目录按「门店编号-店名/门头照.jpg」匹配；导入时自动上传门头照，并从 EXIF 写入到店定位。
+  「店铺形象负面照片」有才传。无照片的店仍需人工补。
+</footer>
+
+<div class="modal" id="modal">
+  <div class="box">
+    <h3 id="mTitle"></h3>
+    <div id="mBody"></div>
+    <div class="acts">
+      <button onclick="closeModal()">关闭</button>
+      <button class="primary" id="mOk" style="display:none">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let ROWS = [], FILTERED = [], SELECTED = new Set(), JOB = {};
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function log(level, msg, ts){
+  const d = document.createElement('div');
+  d.className = 'lv-' + level;
+  d.innerHTML = `<span class="ts">${esc(ts||'')}</span>${esc(msg)}`;
+  $('logs').appendChild(d);
+  $('logs').scrollTop = $('logs').scrollHeight;
+  while($('logs').children.length > 800) $('logs').removeChild($('logs').firstChild);
+}
+
+function setStats(s, job){
+  const g = k => s[k] || 0;
+  const total = Object.entries(s).filter(([k])=>k!=='_total')
+    .reduce((a,[,v])=>a+v, 0);
+  const cards = [
+    ['run', g('_total'), '已处理门店'],
+    ['ok', g('ok'), '成功'],
+    ['warn', g('warning'), '有缺失'],
+    ['err', g('failed'), '失败'],
+    ['', g('skipped'), '已跳过'],
+    ['', g('submitted'), '已提交'],
+  ];
+  $('stats').innerHTML = cards.map(([c,n,l])=>
+    `<div class="card ${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+}
+
+function render(){
+  const kw = $('q').value.trim().toLowerCase();
+  const f = $('filter').value;
+  FILTERED = ROWS.filter(r=>{
+    if(f==='hasfile' && !r.has_file) return false;
+    if(f==='hasphoto' && !r.has_photo) return false;
+    if(f==='pending' && r.last_status) return false;
+    if(['ok','warning','failed','skipped'].includes(f) && r.last_status!==f) return false;
+    if(!kw) return true;
+    return (r.code+' '+r.name+' '+r.region+' '+r.file_name).toLowerCase().includes(kw);
+  });
+  if(!FILTERED.length){
+    $('tb').innerHTML='';
+    $('empty').style.display = ROWS.length ? 'block' : 'none';
+    if(ROWS.length) $('empty').textContent = '没有符合筛选条件的门店';
+    return;
+  }
+  $('empty').style.display='none';
+  $('tb').innerHTML = FILTERED.map(r=>{
+    const st = r.last_status || 'none';
+    const tag = {ok:['t-ok','成功'],warning:['t-warning','有缺失'],failed:['t-failed','失败'],
+      skipped:['t-skipped','已跳过'],submitted:['t-submitted','已提交'],none:['t-pending','未导入']}[st] || ['t-pending',st];
+    return `<tr class="${SELECTED.has(r.code)?'sel':''}">
+      <td><input type="checkbox" data-code="${esc(r.code)}" ${SELECTED.has(r.code)?'checked':''} ${r.has_file?'':'disabled'}></td>
+      <td>${esc(r.code)}</td>
+      <td class="name">${esc(r.name)}</td>
+      <td>${esc(r.region)}</td>
+      <td>${r.has_file?esc(r.file_name):'<span style="color:#c0392b">无文件</span>'}</td>
+      <td>${r.has_photo?esc(r.photo_summary||'有图'):'<span style="color:#9aa0a6">无</span>'}</td>
+      <td><span class="tag ${tag[0]}">${tag[1]}</span></td>
+      <td class="msg">${esc(r.last_message)}</td>
+      <td>
+        <button class="sm" onclick="preview('${esc(r.code)}')">预览</button>
+        <button class="sm" onclick="runOne('${esc(r.code)}')">导入</button>
+      </td></tr>`;
+  }).join('');
+  $('tb').querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.onchange = e=>{
+      const code = e.target.dataset.code;
+      e.target.checked ? SELECTED.add(code) : SELECTED.delete(code);
+      e.target.closest('tr').classList.toggle('sel', e.target.checked);
+      updSel();
+    };
+  });
+  updSel();
+}
+
+function updSel(){
+  $('selCount').textContent = '已选 ' + SELECTED.size;
+  $('btnRun').disabled = JOB.running || !SELECTED.size;
+  $('btnSubmit').disabled = JOB.running || !SELECTED.size;
+  $('btnSubmitOnly').disabled = JOB.running || !SELECTED.size;
+}
+
+function updProg(){
+  const j = JOB || {};
+  const running = j.running;
+  const done = j.done||0, total = j.total||0;
+  const pct = total ? Math.round(done/total*100) : 0;
+  $('pBar').style.width = pct + '%';
+  $('pTxt').textContent = running ? '运行中…' : (total ? '已完成' : '空闲');
+  $('pNum').textContent = total ? `${done}/${total}　成功${j.ok||0} 缺失${j.warn||0} 失败${j.fail||0} 跳过${j.skip||0}` : '';
+  updSel();
+}
+
+async function loadStores(){
+  try{
+    const r = await fetch('/api/stores').then(x=>x.json());
+    if(!r.ok){ alert('载入失败：'+r.error); return; }
+    ROWS = r.rows; JOB = r.job||{};
+    setStats(r.stats||{}, JOB); updProg(); render();
+  }catch(e){ alert('载入失败：'+e); }
+}
+
+async function preview(code){
+  log('info', `正在预览 ${code} …`);
+  const r = await fetch('/api/preview/'+encodeURIComponent(code)).then(x=>x.json());
+  if(!r.ok){
+    $('mTitle').textContent = `预览失败 · ${code}`;
+    $('mBody').innerHTML = `<pre>${esc(r.error)}</pre>`;
+  }else{
+    const photos = (r.photo_plan||[]);
+    const photoHtml = photos.length ? `<pre>本地照片 / 定位：\n${photos.map(p=>{
+      const mark = p.status==='ready' ? '✓' : (p.status==='optional' ? '○' : '×');
+      return mark+' '+p.text+' → '+(p.note||'');
+    }).join('\n')}</pre>` : '';
+    const manualQs = (r.manual_questions||[]);
+    const manualHtml = r.manual_required
+      ? `<pre>导入后仍需人工补填：\n${manualQs.map(m=>'· ['+m.type+'] '+m.text).join('\n')||('· '+r.manual_required+' 题')}</pre>`
+      : '';
+    $('mTitle').textContent = `预览 · ${code} ${r.store_name||''}`;
+    $('mBody').innerHTML = `<div class="kv">
+      <b>线上门店</b><span>${esc(r.server_store)}</span>
+      <b>问卷</b><span>${esc(r.title)}</span>
+      <b>状态 / 模式</b><span>${esc(r.status)} / ${esc(r.entry_mode)}</span>
+      <b>可导入题数</b><span>${r.answerable} / ${r.total_questions}</span>
+      <b>本地可自动填</b><span>${r.photo_ready||0} 项（照片/定位）</span>
+      <b>需人工补填</b><span>${r.manual_required} 题</span>
+      <b>缺失必答题</b><span>${r.missing_required.length ? r.missing_required.length+' 题' : '无'}</span>
+    </div>
+    ${photoHtml}
+    ${manualHtml}
+    ${r.missing_required.length?`<pre>缺失必答题：\n${r.missing_required.map(m=>'· '+m.text).join('\n')}</pre>`:''}
+    ${r.notes.length?`<pre>需注意：\n${r.notes.map(m=>'· '+m.text+' → '+m.note).join('\n')}</pre>`:''}
+    ${r.unmatched_excel.length?`<pre>Excel 中未匹配（线上无此题，将忽略）：\n${r.unmatched_excel.map(m=>'· '+m.text).join('\n')}</pre>`:''}`;
+  }
+  $('mOk').style.display='none';
+  $('modal').classList.add('show');
+}
+function closeModal(){ $('modal').classList.remove('show'); }
+
+async function runOne(code){
+  if(JOB.running){ alert('已有任务在运行'); return; }
+  SELECTED = new Set([code]);
+  doRun(false);
+}
+
+function doRun(submit){
+  const codes = [...SELECTED];
+  if(!codes.length) return;
+  if(submit){
+    if(!confirm(`将对 ${codes.length} 家门店执行【导入并直接提交】。\n\n⚠️ 导入会用 Excel 答案覆盖草稿，可能冲掉人工补的照片。\n提交后会进入审核，审核打回前无法再修改。\n\n确定继续吗？`)) return;
+    if(!confirm('请再次确认：真的要提交吗？')) return;
+  }
+  fetch('/api/run', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({codes, force:$('force').checked, submit, concurrency:3})})
+    .then(x=>x.json()).then(r=>{ if(!r.ok) alert(r.error); });
+}
+
+function doSubmitOnly(){
+  const codes = [...SELECTED];
+  if(!codes.length) return;
+  if(!confirm(`将对 ${codes.length} 家门店执行【仅提交草稿】。\n\n不会重新导入 Excel，保留人工补的照片/定位。\n提交后进入审核，审核打回前无法修改。\n\n确定继续吗？`)) return;
+  if(!confirm('请再次确认：真的要提交吗？')) return;
+  fetch('/api/submit', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({codes, force:$('force').checked, concurrency:3})})
+    .then(x=>x.json()).then(r=>{ if(!r.ok) alert(r.error); });
+}
+
+// ---------------- SSE
+let es = null;
+function connect(){
+  es = new EventSource('/api/stream');
+  es.onmessage = e=>{
+    const d = JSON.parse(e.data);
+    if(d.level==='hello' || d.level==='keepalive') return;
+    if(d.level==='progress'){ JOB = d.job; updProg(); return; }
+    log(d.level, d.msg, d.ts);
+    if(/任务结束|任务异常/.test(d.msg||'')){
+      JOB.running=false; updProg();
+      setTimeout(loadStores, 400);
+    }
+  };
+  es.onerror = ()=>{};
+}
+
+// ---------------- 事件
+let choosing = false;
+async function pickPath(kind, inputId, extra){
+  if(choosing){
+    alert('已有一个选择窗口打开（可能藏在其他窗口后面）。请先在弹出的窗口里选好或点取消。');
+    return;
+  }
+  choosing = true;
+  ['btnPickList','btnPickDir','btnPickPhoto'].forEach(id=>{ const b=$(id); if(b) b.disabled = true; });
+  log('info', '正在打开系统选择窗口，若没看到请看 Dock 里跳动的图标…');
+  try{
+    const r = await fetch('/api/choose', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({type: kind, ...(extra||{})}),
+    }).then(x=>x.json());
+    if(r.ok) $(inputId).value = r.path;
+    else if(r.error && r.error !== '已取消') alert('选择失败：'+r.error);
+  }catch(e){
+    alert('选择失败：'+e);
+  }finally{
+    choosing = false;
+    ['btnPickList','btnPickDir','btnPickPhoto'].forEach(id=>{ const b=$(id); if(b) b.disabled = false; });
+  }
+}
+$('btnPickList').onclick = ()=>pickPath('file', 'listPath');
+$('btnPickDir').onclick = ()=>pickPath('dir', 'qDir');
+$('btnPickPhoto').onclick = ()=>pickPath('dir', 'photoDir', {for:'photo'});
+$('btnApply').onclick = async ()=>{
+  const r = await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({list_path:$('listPath').value, q_dir:$('qDir').value,
+                         photo_dir:$('photoDir').value})}).then(x=>x.json());
+  if(!r.ok){ alert('应用失败：'+r.error); return; }
+  await loadStores();
+};
+$('btnRefresh').onclick = loadStores;
+$('q').oninput = render;
+$('filter').onchange = render;
+$('selAll').onchange = e=>{
+  FILTERED.forEach(r=>{ if(r.has_file){ e.target.checked ? SELECTED.add(r.code) : SELECTED.delete(r.code);} });
+  render();
+};
+$('btnRun').onclick = ()=>doRun(false);
+$('btnSubmit').onclick = ()=>doRun(true);
+$('btnSubmitOnly').onclick = ()=>doSubmitOnly();
+$('btnExport').onclick = ()=>location.href='/api/export';
+$('btnExportManual').onclick = ()=>location.href='/api/export/manual';
+$('btnClearLog').onclick = ()=>$('logs').innerHTML='';
+$('modal').onclick = e=>{ if(e.target.id==='modal') closeModal(); };
+
+// 拖拽支持：把 xlsx 拖到清单组、把文件夹拖到问卷组，直接填路径。
+// 注意：浏览器无法拿到拖入文件/目录的绝对路径，所以拖完后让后端
+// 读一次拖入项做存在性校验（macOS 上只有 .path，非 macOS 为空）。
+function bindDrop(grpId, inputId, kind){
+  const grp = $(grpId), input = $(inputId);
+  ['dragenter','dragover'].forEach(ev=>grp.addEventListener(ev, e=>{
+    e.preventDefault(); e.stopPropagation();
+    grp.classList.add('over');
+  }));
+  ['dragleave','dragend','drop'].forEach(ev=>grp.addEventListener(ev, e=>{
+    e.preventDefault(); e.stopPropagation();
+    grp.classList.remove('over');
+  }));
+  grp.addEventListener('drop', async e=>{
+    const dt = e.dataTransfer;
+    if(!dt || !dt.files || !dt.files.length) return;
+    const f = dt.files[0];
+    // 浏览器在 macOS 上能拿到的路径保存在 f.path，Windows/Linux 为空
+    // 拿不到时回退到只填 file.name，避免误把文件当目录
+    let p = f.path || '';
+    if(!p){
+      input.value = f.name;
+      alert('浏览器未能读取拖入项的完整路径（仅 macOS 支持拖入填路径）。\n已填入文件名，请改用「选文件/选目录…」按钮选取，或直接补全路径。');
+      return;
+    }
+    if(kind === 'file' && !/\.(xlsx|xls|csv)$/i.test(p)){
+      alert('请拖入 .xlsx / .xls / .csv 格式的门店清单文件'); return;
+    }
+    if(kind === 'dir'){
+      // AppleScript 选择目录最稳，这里只用拖入做软校验
+    }
+    input.value = p;
+  });
+}
+bindDrop('grpList', 'listPath', 'file');
+bindDrop('grpDir', 'qDir', 'dir');
+bindDrop('grpPhoto', 'photoDir', 'dir');
+
+// 初始化
+fetch('/api/config').then(x=>x.json()).then(c=>{
+  $('listPath').value = c.list_path||''; $('qDir').value = c.q_dir||'';
+  $('photoDir').value = c.photo_dir||'';
+  if(!c.exists.list || !c.exists.qdir){
+    const n = $('notice'); n.style.display='block';
+    n.textContent = '当前数据源路径不可用，请在上方填入正确的清单文件路径与问卷目录后点击「应用并重载」。';
+  }else{ loadStores(); }
+});
+connect();
+setInterval(()=>{ if(!JOB.running) loadStores(); }, 20000);
+</script>
+</body>
+</html>
